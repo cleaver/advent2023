@@ -1,0 +1,225 @@
+# Day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Solutions
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+### Day 5 - If You Give A Seed A Fertilizer
+
+#### Part 1
+
+tldr; Transform the seed using the maps.
+
+Example Data:
+
+```
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
+```
+
+the lowest location number in this example is `35`.
+
+#### Part 2
+
+tldr; Treat the seed data as ranges (start, length)
+
+The lowest location number is `46`.
+
+```elixir
+defmodule InputHelpers do
+  def parse_input(input, trim \\ true) do
+    input
+    |> String.split("\n", trim: trim)
+    |> Enum.map(&String.trim/1)
+  end
+end
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+import InputHelpers
+
+defmodule Y2023.D5 do
+  @moduledoc """
+  https://adventofcode.com/2023/day/5
+  """
+
+  def p1(input) do
+    input = parse_input(input)
+    seeds = input |> hd() |> parse_seeds()
+    transform_list = input |> tl() |> parse_transform_list()
+
+    seeds
+    |> perform_all_transforms(transform_list)
+    |> Enum.min()
+  end
+
+  def parse_seeds(seeds_string) do
+    Regex.scan(~r/(\d+)/, seeds_string)
+    |> Enum.map(fn [match, _] -> String.to_integer(match) end)
+  end
+
+  def parse_transform_list(lines) do
+    lines
+    |> Enum.chunk_by(&String.ends_with?(&1, ":"))
+    |> Enum.reject(&String.ends_with?(hd(&1), ":"))
+    |> Enum.map(fn transform_group ->
+      Enum.map(transform_group, fn line ->
+        [destination, start, length] =
+          line |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
+
+        {destination, start, start + length - 1}
+      end)
+    end)
+  end
+
+  def perform_all_transforms(seeds, []), do: seeds
+
+  def perform_all_transforms(seeds, [transform | rest]) do
+    new_seeds = Enum.map(seeds, fn seed -> transform_seed(seed, transform) end)
+    perform_all_transforms(new_seeds, rest)
+  end
+
+  def transform_seed(seed, transform) do
+    matching_transform =
+      Enum.find(transform, fn {_destination, start, finish} ->
+        seed >= start and seed <= finish
+      end)
+
+    transform_factor =
+      case matching_transform do
+        {destination, start, _finish} ->
+          destination - start
+
+        _ ->
+          0
+      end
+
+    seed + transform_factor
+  end
+
+  def p2(input) do
+    input = parse_input(input)
+    seeds = input |> hd() |> parse_seeds() |> parse_seed_ranges()
+    transform_list = input |> tl() |> parse_transform_list()
+
+    seeds
+    |> split_and_transform(transform_list)
+    |> Enum.min_by(fn {seed_start, _seed_end} -> seed_start end)
+    |> Tuple.to_list()
+    |> hd()
+  end
+
+  def parse_seed_ranges([]), do: []
+
+  def parse_seed_ranges([seed, length | rest]) do
+    [{seed, seed + length} | parse_seed_ranges(rest)]
+  end
+
+  def split_and_transform(seed_ranges, []), do: seed_ranges
+
+  def split_and_transform(seed_ranges, [transform_group | rest]) do
+    new_seed_ranges =
+      seed_ranges
+      |> Enum.reduce([], fn {seed_start, seed_end}, acc ->
+        acc ++ split_seed([{seed_start, seed_end}], transform_group)
+      end)
+      |> Enum.map(&transform_seed_range(&1, transform_group))
+
+    split_and_transform(new_seed_ranges, rest)
+  end
+
+  def split_seed(seed_ranges, []), do: seed_ranges
+
+  def split_seed(seed_ranges, [{_destination, map_start, map_end} | rest]) do
+    new_seed_ranges =
+      Enum.reduce(seed_ranges, [], fn {seed_start, seed_end}, acc ->
+        acc ++
+          cond do
+            # seed contains map
+            seed_start < map_start and map_end < seed_end ->
+              [{seed_start, map_start - 1}, {map_start, map_end}, {map_end + 1, seed_end}]
+
+            # seed starts before map
+            seed_start < map_end and map_end < seed_end ->
+              [{seed_start, map_end}, {map_end + 1, seed_end}]
+
+            # seed ends after map
+            seed_start < map_start and map_start < seed_end ->
+              [{seed_start, map_start - 1}, {map_start, seed_end}]
+
+            # no overlap
+            true ->
+              [{seed_start, seed_end}]
+          end
+      end)
+
+    split_seed(new_seed_ranges, rest)
+  end
+
+  def transform_seed_range({seed_start, seed_end}, transform) do
+    matching_transform =
+      Enum.find(transform, fn {_destination, start, finish} ->
+        seed_start >= start and seed_start <= finish
+      end)
+
+    transform_factor =
+      case matching_transform do
+        {destination, start, _finish} ->
+          destination - start
+
+        _ ->
+          0
+      end
+
+    {seed_start + transform_factor, seed_end + transform_factor}
+  end
+end
+
+Y2023.D5.p1(input) |> IO.puts()
+Y2023.D5.p2(input) |> IO.puts()
+```
+
+### Observations
+
+Part 2 was a good exercise in complex recursion. Could be cleaned up a bit. Also could be make fewer passes through the data, but it is so much more efficient than a brute force approach.
