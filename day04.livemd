@@ -109,16 +109,13 @@ defmodule Y2023.D4 do
   def find_match_count(card) do
     [_, winning_numbers, owned_numbers] = Regex.run(~r/^.+:([\s\d]+)\|([\d\s]+)/, card)
 
-    winning_count =
-      parse_numbers(winning_numbers)
-      |> MapSet.intersection(parse_numbers(owned_numbers))
-      |> MapSet.size()
-
-    winning_count
+    parse_numbers(winning_numbers)
+    |> MapSet.intersection(parse_numbers(owned_numbers))
+    |> MapSet.size()
   end
 
   defp calculate_points(winning_count) do
-    2 |> :math.pow(winning_count - 1) |> trunc()
+    (2 ** (winning_count - 1)) |> trunc()
   end
 
   def parse_numbers(numbers_string) do

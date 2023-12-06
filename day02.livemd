@@ -137,8 +137,8 @@ defmodule Advent2023.Day01 do
 end
 
 Advent2023.Day01.p1(input)
-|> IO.inspect()
+|> IO.puts()
 
 Advent2023.Day01.p2(input)
-|> IO.inspect()
+|> IO.puts()
 ```
