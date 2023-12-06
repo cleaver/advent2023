@@ -1,0 +1,135 @@
+# Day 6
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Solutions
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+### Part 1
+
+Premise: oy boat race.
+
+Example data:
+
+```
+Time:      7  15   30
+Distance:  9  40  200
+```
+
+Example result: `288` (4 * 8 * 9).
+
+### Part 2
+
+Update: Those numbers were a badly kerned single number.
+
+Example result: `71503`.
+
+```elixir
+defmodule InputHelpers do
+  def parse_input(input, trim \\ true) do
+    input
+    |> String.split("\n", trim: trim)
+    |> Enum.map(&String.trim/1)
+  end
+
+  def line_to_keyword(line) do
+    [name, data] = String.split(line, ":")
+
+    key = name |> to_snake_case() |> String.to_atom()
+    {key, data}
+  end
+
+  def to_snake_case(string) do
+    string
+    |> String.downcase()
+    |> String.replace(~r/[^\w\s\d]/, "")
+    |> String.trim()
+    |> String.replace(~r/\s+/, "_")
+  end
+
+  def parse_integer_list(string) do
+    string
+    |> String.split(" ", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end
+end
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+import InputHelpers
+
+defmodule Y2023.D6 do
+  @moduledoc """
+  https://adventofcode.com/2023/day/6
+  """
+
+  def p1(input) do
+    input
+    |> parse_input()
+    |> Enum.map(&parse_line/1)
+    |> calculate_winning_times()
+    |> count_ranges()
+    |> Enum.product()
+  end
+
+  def calculate_winning_times(time: [], distance: []), do: []
+
+  def calculate_winning_times(time: [time | more_times], distance: [distance | more_distances]) do
+    winning_times = solve_min_max(time, distance)
+    [winning_times | calculate_winning_times(time: more_times, distance: more_distances)]
+  end
+
+  def solve_min_max(time, distance) do
+    a = -1
+    b = time
+    c = -distance
+    min = (-b + :math.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    max = (-b - :math.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    {top_int(min), bottom_int(max)}
+  end
+
+  def top_int(float), do: float |> Float.ceil() |> trunc()
+  def bottom_int(float), do: float |> Float.floor() |> trunc()
+
+  def parse_line(line) do
+    {key, raw_numbers} = line_to_keyword(line)
+    number_list = raw_numbers |> parse_integer_list()
+    {key, number_list}
+  end
+
+  def count_ranges(ranges) do
+    Enum.map(ranges, fn {min, max} -> max - min + 1 end)
+  end
+
+  def p2(input) do
+    input
+    |> parse_input()
+    |> Enum.map(&parse_line_kerned/1)
+    |> calculate_winning_times()
+    |> count_ranges()
+    |> Enum.product()
+  end
+
+  def parse_line_kerned(line) do
+    {key, numbers} = line_to_keyword(line)
+    number = numbers |> String.replace(" ", "") |> String.to_integer()
+    {key, [number]}
+  end
+end
+
+Y2023.D6.p1(input) |> IO.puts()
+Y2023.D6.p2(input) |> IO.puts()
+```
+
+### Observations
+
+I figured I should try representing this as a quadratic equation, although a brute force approach would be possible. It took a while to remember how to apply the quadratic formula (it's been a looong time), plus I had to figure out a silly typo I made while implementing it.
