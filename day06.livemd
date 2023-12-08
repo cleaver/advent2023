@@ -14,7 +14,7 @@ input = Kino.Input.textarea("Please paste your input file:")
 
 ### Part 1
 
-Premise: oy boat race.
+Premise: Toy boat race.
 
 Example data:
 

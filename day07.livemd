@@ -1,0 +1,195 @@
+# Day 7
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Solutions
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+### Part 1
+
+Premise: Camel poker.
+
+Example data:
+
+```
+2345A 1
+Q2KJJ 13
+Q2Q2Q 19
+T3T3J 17
+T3Q33 11
+2345J 3
+J345A 2
+32T3K 5
+T55J5 29
+KK677 7
+KTJJT 34
+QQQJA 31
+JJJJJ 37
+JAAAA 43
+AAAAJ 59
+AAAAA 61
+2AAAA 23
+2JJJJ 53
+JJJJ2 41
+```
+
+Example result: `6592`.
+
+### Part 2
+
+Update: "J" is joker.
+
+Example result: `6839`.
+
+```elixir
+defmodule InputHelpers do
+  def parse_input(input, trim \\ true) do
+    input
+    |> String.split("\n", trim: trim)
+    |> Enum.map(&String.trim/1)
+  end
+
+  def line_to_keyword(line) do
+    [name, data] = String.split(line, ":")
+
+    key = name |> to_snake_case() |> String.to_atom()
+    {key, data}
+  end
+
+  def to_snake_case(string) do
+    string
+    |> String.downcase()
+    |> String.replace(~r/[^\w\s\d]/, "")
+    |> String.trim()
+    |> String.replace(~r/\s+/, "_")
+  end
+
+  def parse_integer_list(string) do
+    string
+    |> String.split(" ", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end
+end
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+import InputHelpers
+
+defmodule Y2023.D7 do
+  @moduledoc """
+  https://adventofcode.com/2023/day/7
+  """
+
+  @regular_card_map %{"A" => "E", "K" => "D", "Q" => "C", "J" => "B", "T" => "A"}
+  @joker_card_map %{"A" => "E", "K" => "D", "Q" => "C", "J" => "1", "T" => "A"}
+
+  def p1(input) do
+    input
+    |> parse_input()
+    |> Enum.map(&parse_hand(&1))
+    |> tally_hands()
+  end
+
+  def parse_hand(hand_string, ranking_algorithm \\ :simple) do
+    [cards, stake] = String.split(hand_string, " ")
+    {parse_cards(cards, ranking_algorithm), String.to_integer(stake)}
+  end
+
+  def parse_cards(cards_string, ranking_algorithm) do
+    card_map = if ranking_algorithm == :with_joker, do: @joker_card_map, else: @regular_card_map
+
+    cards_string
+    |> face_to_hex(card_map)
+    |> score_cards(ranking_algorithm)
+  end
+
+  def face_to_hex(card, card_map) do
+    card
+    |> String.replace(
+      ~r/[AKQJT]/,
+      &Map.get(card_map, &1)
+    )
+  end
+
+  def score_cards(cards, ranking_algorithm) do
+    rank =
+      cards
+      |> String.split("", trim: true)
+      |> Enum.frequencies()
+      |> rank_cards(ranking_algorithm)
+
+    {rank_and_cards, _} = Integer.parse("#{rank}#{cards}", 16)
+    rank_and_cards
+  end
+
+  def rank_cards(cards, :simple) do
+    cards
+    |> Map.values()
+    |> Enum.sort(:desc)
+    |> simple_ranking()
+  end
+
+  def rank_cards(cards, :with_joker) do
+    joker_count = Map.get(cards, "1", 0)
+
+    cards
+    |> Map.delete("1")
+    |> Map.values()
+    |> Enum.sort(:desc)
+    |> use_joker(joker_count)
+    |> simple_ranking()
+  end
+
+  def use_joker(card_counts, 0), do: card_counts
+
+  def use_joker([], 5), do: [5]
+
+  def use_joker([first_group | rest], joker_count) do
+    [first_group + joker_count | rest]
+  end
+
+  def simple_ranking([5]), do: 7
+  def simple_ranking([4 | _]), do: 6
+  def simple_ranking([3, 2]), do: 5
+  def simple_ranking([3 | _]), do: 4
+  def simple_ranking([2, 2 | _]), do: 3
+  def simple_ranking([2 | _]), do: 2
+  def simple_ranking(_), do: 1
+
+  def tally_hands(hands) do
+    hands
+    |> Enum.sort_by(fn {cards, _stake} -> cards end)
+    |> Enum.with_index(1)
+    |> Enum.reduce(0, fn {{_cards, stake}, index}, acc ->
+      acc + stake * index
+    end)
+  end
+
+  def p2(input) do
+    input
+    |> parse_input()
+    |> Enum.map(&parse_hand(&1, :with_joker))
+    |> Enum.sort_by(fn {cards, _stake} -> cards end)
+    |> Enum.with_index(1)
+    |> Enum.reduce(0, fn {{_cards, stake}, index}, acc ->
+      acc + stake * index
+    end)
+  end
+end
+
+Y2023.D7.p1(input) |> IO.puts()
+Y2023.D7.p2(input) |> IO.puts()
+```
+
+### Observations
+
+I figured I should try representing this as a quadratic equation, although a brute force approach would be possible. It took a while to remember how to apply the quadratic formula (it's been a looong time), plus I had to figure out a silly typo I made while implementing it.
