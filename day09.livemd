@@ -1,0 +1,134 @@
+# Day 9
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"}
+])
+```
+
+## Solutions
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+### Part 1
+
+Premise: OASIS calculations. Extrapolate the next value. Sum the extrapolated values.
+
+Sample data:
+
+```
+0 3 6 9 12 15
+1 3 6 10 15 21
+10 13 16 21 30 45
+```
+
+Result: `114`
+
+### Part 2
+
+Premise: Extrapolate the previous values and sum.
+
+Result: `2`
+
+```elixir
+defmodule InputHelpers do
+  def parse_input(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.trim/1)
+  end
+
+  def parse_integer_list(string) do
+    string
+    |> String.split(" ", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end
+end
+```
+
+```elixir
+input = Kino.Input.read(input)
+
+import InputHelpers
+
+defmodule Y2023.D9 do
+  @moduledoc """
+  https://adventofcode.com/2023/day/9
+  """
+
+  def p1(input) do
+    input
+    |> parse_input()
+    |> Enum.map(fn line ->
+      line
+      |> parse_integer_list()
+      |> find_next_value()
+      |> List.last()
+    end)
+    |> Enum.sum()
+  end
+
+  def find_next_value(list) do
+    cond do
+      contains_only_zeros?(list) ->
+        [0 | list]
+
+      true ->
+        next_list =
+          list
+          |> calculate_interval_list()
+          |> find_next_value()
+
+        next_value = List.last(next_list) + List.last(list)
+        previous_value = hd(list) - hd(next_list)
+        [previous_value] ++ list ++ [next_value]
+    end
+  end
+
+  def calculate_interval_list([head1, head2]) do
+    [head2 - head1]
+  end
+
+  def calculate_interval_list([head1, head2 | rest]) do
+    [head2 - head1 | calculate_interval_list([head2 | rest])]
+  end
+
+  def calculate_interval_list([_value]), do: []
+
+  @doc """
+      iex> import Y2023.D9
+      iex> contains_only_zeros?([0, 0, 0])
+      true
+      iex> contains_only_zeros?(-3..14)
+      false
+      iex> contains_only_zeros?([])
+      true
+  """
+  def contains_only_zeros?(list) do
+    not Enum.any?(list, &(&1 !== 0))
+  end
+
+  def p2(input) do
+    input
+    |> parse_input()
+    |> Enum.map(fn line ->
+      extrapolated_line =
+        line
+        |> parse_integer_list()
+        |> find_next_value()
+
+      hd(extrapolated_line)
+    end)
+    |> Enum.sum()
+  end
+end
+
+Y2023.D9.p1(input) |> IO.puts()
+Y2023.D9.p2(input) |> IO.puts()
+```
+
+### Observations
+
+This one was fairly smooth. You are basically just implementing the algorithm given in the problem. Part 2 was just a slight tweak and I didn't need to write any new functions.
