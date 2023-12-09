@@ -1,0 +1,170 @@
+# Day 8
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11.3"},
+  {:math, "~> 0.7.0"}
+])
+```
+
+## Solutions
+
+Note: Different sample input for Part 1 and Part 2.
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+```elixir
+input2 = Kino.Input.textarea("Please paste your input file:")
+```
+
+### Part 1
+
+Premise: Desert map.
+
+Sample data:
+
+```
+RL
+
+AAA = (BBB, CCC)
+BBB = (DDD, EEE)
+CCC = (ZZZ, GGG)
+DDD = (DDD, DDD)
+EEE = (EEE, EEE)
+GGG = (GGG, GGG)
+ZZZ = (ZZZ, ZZZ)
+```
+
+Result: `2`
+
+### Part 2
+
+Premise: Desert ghost map.
+
+Sample data:
+
+```
+LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+```
+
+Result: `6`
+
+```elixir
+defmodule InputHelpers do
+  def parse_input(input, trim \\ true) do
+    input
+    |> String.split("\n", trim: trim)
+    |> Enum.map(&String.trim/1)
+  end
+end
+
+defmodule RingList do
+  def init(list) when is_list(list), do: {[], list}
+
+  def next({[], []}), do: {[], []}
+
+  def next({visited, []}) do
+    [a | remain] = Enum.reverse(visited)
+    {[a], remain}
+  end
+
+  def next({visited, [a | remain]}), do: {[a] ++ visited, remain}
+
+  def value({[], []}, _), do: nil
+  def value({visited, []}), do: List.last(visited)
+  def value({_, remain}), do: hd(remain)
+end
+```
+
+```elixir
+input = Kino.Input.read(input)
+input2 = Kino.Input.read(input2)
+
+import InputHelpers
+import RingList
+alias Math
+
+defmodule Y2023.D8 do
+  @moduledoc """
+  https://adventofcode.com/2023/day/8
+  """
+
+  @start "AAA"
+  @finish "ZZZ"
+
+  def p1(input) do
+    {map, route} =
+      input
+      |> parse_input()
+      |> parse_map_and_route()
+
+    travel(@start, map, route, 0)
+  end
+
+  def parse_map_and_route(input) do
+    route = input |> hd() |> String.split("", trim: true) |> init()
+    map = input |> tl() |> Enum.map(&parse_directions/1) |> Map.new()
+    {map, route}
+  end
+
+  def parse_directions(line) do
+    [_, source, left, right] = Regex.run(~r/^(\w+) = \((\w+), (\w+)\)/, line)
+
+    {source, %{"L" => left, "R" => right}}
+  end
+
+  def travel(@finish, _map, _route, count), do: count
+
+  def travel(location, map, route, count) do
+    direction = value(route)
+    next_location = map[location][direction]
+    travel(next_location, map, next(route), count + 1)
+  end
+
+  def p2(input) do
+    {map, route} =
+      input
+      |> parse_input()
+      |> parse_map_and_route()
+
+    map
+    |> Map.keys()
+    |> Enum.filter(&String.ends_with?(&1, "A"))
+    |> Enum.map(fn start_location ->
+      ghost_travel(start_location, map, route, 0)
+    end)
+    |> list_lcm()
+  end
+
+  def ghost_travel(location, map, route, count) do
+    cond do
+      String.ends_with?(location, "Z") ->
+        count
+
+      true ->
+        direction = value(route)
+        next_location = map[location][direction]
+        ghost_travel(next_location, map, next(route), count + 1)
+    end
+  end
+
+  def list_lcm([n]), do: n
+  def list_lcm([n1, n2 | rest]), do: [Math.lcm(n1, n2) | rest] |> list_lcm()
+end
+
+Y2023.D8.p1(input) |> IO.puts()
+Y2023.D8.p2(input2) |> IO.puts()
+```
+
+### Observations
